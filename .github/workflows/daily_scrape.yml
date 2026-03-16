@@ -1,0 +1,59 @@
+name: Daily Price Scraper
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC every day
+  workflow_dispatch:        # manual trigger from GitHub UI
+
+jobs:
+  scrape-and-analyse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore SQLite database
+        uses: actions/cache@v4
+        with:
+          path: data/price_tracker.db
+          key: price-db-${{ runner.os }}
+          restore-keys: price-db-
+
+      - name: Run pipeline
+        env:
+          SMTP_HOST:     ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:     ${{ secrets.SMTP_PORT }}
+          SMTP_USER:     ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: python scheduler.py
+
+      - name: Upload daily CSV exports
+        uses: actions/upload-artifact@v4
+        with:
+          name: price-exports-${{ github.run_id }}
+          path: data/exports/
+          retention-days: 30
+
+      - name: Upload analysis reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-reports-${{ github.run_id }}
+          path: analysis/reports/
+          retention-days: 30
+
+      - name: Save SQLite database cache
+        uses: actions/cache/save@v4
+        with:
+          path: data/price_tracker.db
+          key: price-db-${{ runner.os }}-${{ github.run_id }}

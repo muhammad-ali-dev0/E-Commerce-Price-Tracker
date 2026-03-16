@@ -1,0 +1,22 @@
+# ── Core scraping ─────────────────────────────
+scrapy>=2.11
+scrapy-rotating-proxies>=0.6.2
+scrapy-user-agents>=0.1.1
+
+# ── Data analysis ──────────────────────────────
+pandas>=2.1
+numpy>=1.26
+scipy>=1.11
+
+# ── Visualisation (optional local Tableau alt) ─
+plotly>=5.17
+dash>=2.14
+
+# ── Email ──────────────────────────────────────
+# smtplib is stdlib; sendgrid is optional:
+# sendgrid>=6.11
+
+# ── Utilities ─────────────────────────────────
+python-dotenv>=1.0
+schedule>=1.2
+tqdm>=4.66

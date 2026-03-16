@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>E-Commerce Price Tracker Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0a0f;
+    --surface:  #111118;
+    --border:   #1e1e2e;
+    --accent:   #6ee7b7;
+    --accent2:  #fbbf24;
+    --accent3:  #f472b6;
+    --accent4:  #60a5fa;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --card-bg:  #13131d;
+    --up:       #4ade80;
+    --down:     #f87171;
+    --r:        10px;
+    --font-display: 'Syne', sans-serif;
+    --font-mono:    'DM Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 15px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: .5;
+  }
+
+  /* ── Layout ── */
+  .shell { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 28px 60px; }
+
+  /* ── Header ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 28px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em;
+  }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--accent), var(--accent4));
+    border-radius: 8px;
+    display: grid; place-items: center; font-size: 17px;
+  }
+  .logo span { color: var(--accent); }
+  .header-meta { display: flex; align-items: center; gap: 20px; }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(110,231,183,.1); border: 1px solid rgba(110,231,183,.2);
+    border-radius: 99px; padding: 4px 12px;
+    font-family: var(--font-mono); font-size: .78rem; color: var(--accent);
+  }
+  .live-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  nav { display: flex; gap: 2px; }
+  nav button {
+    background: none; border: none; color: var(--muted); font-family: var(--font-display);
+    font-size: .82rem; font-weight: 600; padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; transition: .2s;
+  }
+  nav button:hover, nav button.active { background: var(--border); color: var(--text); }
+
+  /* ── KPI Row ── */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px 22px;
+    position: relative; overflow: hidden;
+  }
+  .kpi::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi:nth-child(1)::after { background: var(--accent); }
+  .kpi:nth-child(2)::after { background: var(--accent2); }
+  .kpi:nth-child(3)::after { background: var(--accent3); }
+  .kpi:nth-child(4)::after { background: var(--accent4); }
+  .kpi-label { font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+  .kpi-value { font-size: 2rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .kpi-sub { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); margin-top: 6px; }
+  .kpi-sub .up   { color: var(--up); }
+  .kpi-sub .down { color: var(--down); }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .span-2 { grid-column: span 2; }
+  .span-3 { grid-column: span 3; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 22px 24px;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .card-title { font-size: .9rem; font-weight: 700; color: var(--text); letter-spacing: -.01em; }
+  .card-subtitle { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .tag {
+    font-family: var(--font-mono); font-size: .7rem; padding: 3px 9px;
+    border-radius: 5px; border: 1px solid var(--border); color: var(--muted);
+  }
+
+  /* ── Chart containers ── */
+  .chart-wrap { position: relative; }
+  .chart-wrap canvas { max-height: 260px; }
+  .chart-lg canvas { max-height: 320px; }
+
+  /* ── Product selector ── */
+  .select-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--font-mono); font-size: .75rem; padding: 5px 12px;
+    border-radius: 6px; border: 1px solid var(--border); background: none;
+    color: var(--muted); cursor: pointer; transition: .15s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: rgba(110,231,183,.12); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Seller table ── */
+  .seller-table { width: 100%; border-collapse: collapse; }
+  .seller-table th {
+    font-family: var(--font-mono); font-size: .7rem; color: var(--muted);
+    text-align: left; padding: 0 0 10px; text-transform: uppercase; letter-spacing: .07em;
+    border-bottom: 1px solid var(--border);
+  }
+  .seller-table td { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: .85rem; }
+  .seller-table tr:last-child td { border-bottom: none; }
+  .rank { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); }
+  .bar-cell { width: 120px; }
+  .bar-bg { background: var(--border); border-radius: 3px; height: 5px; }
+  .bar-fill { height: 5px; border-radius: 3px; background: var(--accent); transition: width .6s ease; }
+  .badge-cheap { background: rgba(74,222,128,.12); color: var(--up); padding: 2px 7px; border-radius: 4px; font-size: .7rem; font-weight: 600; }
+  .badge-prem  { background: rgba(251,191,36,.1);  color: var(--accent2); padding: 2px 7px; border-radius: 4px; font-size: .7rem; font-weight: 600; }
+
+  /* ── Alert panel ── */
+  .alert-form { display: flex; flex-direction: column; gap: 12px; }
+  .form-row { display: flex; gap: 10px; }
+  .form-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    padding: 9px 13px; color: var(--text); font-family: var(--font-mono); font-size: .82rem;
+    outline: none; transition: .2s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--muted); }
+  .btn-primary {
+    background: var(--accent); color: #000; border: none; border-radius: 7px;
+    padding: 9px 18px; font-family: var(--font-display); font-size: .82rem; font-weight: 700;
+    cursor: pointer; transition: .15s; white-space: nowrap;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .alerts-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .alert-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 10px 14px;
+  }
+  .alert-item .a-name { font-size: .83rem; font-weight: 600; }
+  .alert-item .a-meta { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .alert-price { font-family: var(--font-mono); font-size: .9rem; color: var(--accent); font-weight: 500; }
+  .btn-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; transition: .15s; }
+  .btn-del:hover { color: var(--down); }
+
+  /* ── Scatter ── */
+  .quadrant-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 14px; }
+  .q-item { display: flex; align-items: center; gap: 7px; font-size: .75rem; color: var(--muted); }
+  .q-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Market insights ── */
+  .insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .insight-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .insight-card .i-label { font-size: .72rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .insight-card .i-value { font-size: 1.25rem; font-weight: 800; }
+  .insight-card .i-sub { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); margin-top: 3px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 1100px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .span-2, .span-3 { grid-column: span 1; }
+  }
+  @media (max-width: 640px) {
+    .header-meta { gap: 10px; }
+    nav { display: none; }
+    .kpis { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Entry animation ── */
+  .card, .kpi { opacity: 0; transform: translateY(12px); animation: fadeUp .5s ease forwards; }
+  @keyframes fadeUp { to { opacity: 1; transform: none; } }
+  .kpi:nth-child(1) { animation-delay: .05s; }
+  .kpi:nth-child(2) { animation-delay: .1s; }
+  .kpi:nth-child(3) { animation-delay: .15s; }
+  .kpi:nth-child(4) { animation-delay: .2s; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📈</div>
+      E-Commerce<span>Price Tracker</span>
+    </div>
+    <div class="header-meta">
+      <nav>
+        <button class="active">Overview</button>
+        <button>Trends</button>
+        <button>Sellers</button>
+        <button>Alerts</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi">
+      <div class="kpi-label">Products Tracked</div>
+      <div class="kpi-value" style="color:var(--accent)">247</div>
+      <div class="kpi-sub"><span class="up">↑ 12</span> added this week</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Price Drop (7d)</div>
+      <div class="kpi-value" style="color:var(--accent2)">−8.4%</div>
+      <div class="kpi-sub"><span class="down">↓ 2.1%</span> vs last week</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Active Alerts</div>
+      <div class="kpi-value" style="color:var(--accent3)">18</div>
+      <div class="kpi-sub"><span class="up">3 triggered</span> today</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Sellers Monitored</div>
+      <div class="kpi-value" style="color:var(--accent4)">34</div>
+      <div class="kpi-sub">Across <span class="up">2 platforms</span></div>
+    </div>
+  </div>
+
+  <!-- Row 1: Price trend + Seller table -->
+  <div class="grid-2" style="margin-bottom:20px">
+    <div class="card span-2" style="grid-column:1">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Price Change Over Time</div>
+          <div class="card-subtitle">7-day rolling average · click a product to compare</div>
+        </div>
+        <span class="tag">30 days</span>
+      </div>
+      <div class="select-row" id="productChips"></div>
+      <div class="chart-wrap chart-lg">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:20px">
+    <!-- Seller Comparison -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Cheapest Seller Comparison</div>
+          <div class="card-subtitle">Average price across listed products</div>
+        </div>
+        <span class="tag">all products</span>
+      </div>
+      <table class="seller-table" id="sellerTable"></table>
+    </div>
+
+    <!-- Rating vs Price scatter -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Rating vs Price Analysis</div>
+          <div class="card-subtitle">Each bubble = 1 product · size = review count</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="scatterChart"></canvas>
+      </div>
+      <div class="quadrant-legend">
+        <div class="q-item"><div class="q-dot" style="background:#4ade80"></div> Best Value</div>
+        <div class="q-item"><div class="q-dot" style="background:#60a5fa"></div> Premium</div>
+        <div class="q-item"><div class="q-dot" style="background:#fbbf24"></div> Budget Risk</div>
+        <div class="q-item"><div class="q-dot" style="background:#f472b6"></div> Avoid</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Category distribution + Alerts -->
+  <div class="grid-2" style="margin-bottom:20px">
+    <!-- Discount bar chart -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Market Competition Analysis</div>
+          <div class="card-subtitle">Products per seller · avg discount depth</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="competitionChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Alerts panel -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Price Drop Alerts</div>
+          <div class="card-subtitle">Get notified when price hits your target</div>
+        </div>
+      </div>
+      <div class="alert-form">
+        <select class="form-input" id="alertProduct">
+          <option value="">Select product…</option>
+        </select>
+        <div class="form-row">
+          <input class="form-input" id="alertEmail" type="email" placeholder="your@email.com"/>
+          <input class="form-input" id="alertTarget" type="number" placeholder="Target $" style="width:110px;flex:none"/>
+          <button class="btn-primary" onclick="addAlert()">+ Alert</button>
+        </div>
+      </div>
+      <div class="alerts-list" id="alertsList"></div>
+    </div>
+  </div>
+
+  <!-- Row 4: Market insights bar -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-head">
+      <div class="card-title">Market Insights</div>
+    </div>
+    <div class="insight-grid">
+      <div class="insight-card">
+        <div class="i-label">Best Value Product</div>
+        <div class="i-value">Anker 65W Charger</div>
+        <div class="i-sub">Value score: 15.52 · $29 · ★4.5</div>
+      </div>
+      <div class="insight-card">
+        <div class="i-label">Biggest Drop (7d)</div>
+        <div class="i-value" style="color:var(--up)">−23%</div>
+        <div class="i-sub">Sony WH-1000XM5 · $349 → $249</div>
+      </div>
+      <div class="insight-card">
+        <div class="i-label">Most Competitive Category</div>
+        <div class="i-value">Smartphones</div>
+        <div class="i-sub">8 sellers · avg spread $340</div>
+      </div>
+      <div class="insight-card">
+        <div class="i-label">Price/Rating Correlation</div>
+        <div class="i-value">r = 0.28</div>
+        <div class="i-sub">Weak positive — value not tied to price</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ──────────────── DATA ────────────────
+const DATA = {
+  products: [
+    {id:1, name:"Galaxy S24 Ultra",  category:"Smartphones"},
+    {id:2, name:"iPhone 15 Pro",     category:"Smartphones"},
+    {id:3, name:"Dell XPS 15",       category:"Laptops"},
+    {id:4, name:"Sony WH-1000XM5",   category:"Audio"},
+  ],
+  history: [
+    {pid:1, dates:["Nov 1","Nov 8","Nov 15","Nov 22","Nov 29","Dec 6","Dec 13","Dec 20"], prices:[1299,1249,1199,1179,1099,1149,1099,999]},
+    {pid:2, dates:["Nov 1","Nov 8","Nov 15","Nov 22","Nov 29","Dec 6","Dec 13","Dec 20"], prices:[1199,1199,1149,1099,1079,1099,1049,999]},
+    {pid:3, dates:["Nov 1","Nov 8","Nov 15","Nov 22","Nov 29","Dec 6","Dec 13","Dec 20"], prices:[1799,1749,1699,1599,1499,1599,1549,1499]},
+    {pid:4, dates:["Nov 1","Nov 8","Nov 15","Nov 22","Nov 29","Dec 6","Dec 13","Dec 20"], prices:[349,329,299,279,249,279,269,249]},
+  ],
+  sellers: [
+    {name:"Daraz",          products:35, avg:290, discount:18},
+    {name:"Amazon",         products:28, avg:487, discount:12},
+    {name:"Walmart",        products:18, avg:410, discount:9},
+    {name:"BestBuy",        products:22, avg:620, discount:15},
+    {name:"B&H Photo",      products:14, avg:890, discount:7},
+    {name:"Apple Store",    products:9,  avg:1150,discount:3},
+    {name:"Samsung Official",products:12,avg:1100,discount:8},
+  ],
+  scatter: [
+    {name:"iPhone 15 Pro",     price:999, rating:4.8, cat:"Smartphones"},
+    {name:"Anker Charger",     price:29,  rating:4.5, cat:"Accessories"},
+    {name:"Sony XM5",          price:249, rating:4.7, cat:"Audio"},
+    {name:"MacBook Air M3",    price:1299,rating:4.9, cat:"Laptops"},
+    {name:"Galaxy S24 Ultra",  price:1099,rating:4.6, cat:"Smartphones"},
+    {name:"Logitech MX3",      price:79,  rating:4.6, cat:"Accessories"},
+    {name:"Dell XPS 15",       price:1499,rating:4.4, cat:"Laptops"},
+    {name:"Bose QC45",         price:199, rating:4.4, cat:"Audio"},
+    {name:"LG 4K Monitor",     price:399, rating:4.3, cat:"Monitors"},
+    {name:"Razer DeathAdder",  price:49,  rating:4.4, cat:"Accessories"},
+    {name:"Pixel 8 Pro",       price:899, rating:4.5, cat:"Smartphones"},
+    {name:"Samsung Monitor",   price:899, rating:4.2, cat:"Monitors"},
+    {name:"ASUS ROG Phone",    price:799, rating:4.3, cat:"Smartphones"},
+    {name:"iPad Pro 12.9",     price:1099,rating:4.7, cat:"Tablets"},
+    {name:"Lenovo ThinkPad",   price:1699,rating:4.5, cat:"Laptops"},
+  ]
+};
+
+const PALETTE = ["#6ee7b7","#fbbf24","#f472b6","#60a5fa","#a78bfa","#34d399","#f97316"];
+
+// ──────────────── TREND CHART ────────────────
+const activeProducts = new Set([1, 2]);
+
+function buildTrendDatasets() {
+  return DATA.history
+    .filter(h => activeProducts.has(h.pid))
+    .map((h, i) => {
+      const prod = DATA.products.find(p => p.id === h.pid);
+      const c = PALETTE[i % PALETTE.length];
+      return {
+        label: prod.name,
+        data: h.prices,
+        borderColor: c,
+        backgroundColor: c + "18",
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: c,
+        tension: 0.4,
+        fill: true,
+      };
+    });
+}
+
+const trendCtx = document.getElementById("trendChart").getContext("2d");
+const trendChart = new Chart(trendCtx, {
+  type: "line",
+  data: { labels: DATA.history[0].dates, datasets: buildTrendDatasets() },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { labels: { color: "#94a3b8", font: { family: "DM Mono", size: 11 }, boxWidth: 12 } },
+      tooltip: {
+        backgroundColor: "#13131d", borderColor: "#1e1e2e", borderWidth: 1,
+        titleColor: "#e2e8f0", bodyColor: "#94a3b8",
+        callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}` }
+      }
+    },
+    scales: {
+      x: { ticks: { color: "#475569", font: { family: "DM Mono", size: 11 } }, grid: { color: "#1e1e2e" } },
+      y: {
+        ticks: { color: "#475569", font: { family: "DM Mono", size: 11 }, callback: v => `$${v.toLocaleString()}` },
+        grid: { color: "#1e1e2e" }
+      }
+    }
+  }
+});
+
+// Chips
+const chipsEl = document.getElementById("productChips");
+DATA.products.forEach(p => {
+  const btn = document.createElement("button");
+  btn.className = "chip" + (activeProducts.has(p.id) ? " active" : "");
+  btn.textContent = p.name;
+  btn.onclick = () => {
+    if (activeProducts.has(p.id)) activeProducts.delete(p.id);
+    else activeProducts.add(p.id);
+    btn.classList.toggle("active");
+    trendChart.data.datasets = buildTrendDatasets();
+    trendChart.update();
+  };
+  chipsEl.appendChild(btn);
+});
+
+// ──────────────── SELLER TABLE ────────────────
+const maxAvg = Math.max(...DATA.sellers.map(s => s.avg));
+const sellerTbl = document.getElementById("sellerTable");
+sellerTbl.innerHTML = `
+  <thead><tr>
+    <th>#</th><th>Seller</th><th>Products</th><th>Avg Price</th><th style="width:130px">Price Bar</th><th>Discount</th>
+  </tr></thead>
+  <tbody>${DATA.sellers.map((s, i) => `
+    <tr>
+      <td class="rank">${i+1}</td>
+      <td><strong>${s.name}</strong></td>
+      <td style="font-family:var(--font-mono);font-size:.8rem">${s.products}</td>
+      <td style="font-family:var(--font-mono);font-size:.85rem;color:var(--accent)">$${s.avg}</td>
+      <td class="bar-cell">
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(s.avg/maxAvg*100)}%"></div></div>
+      </td>
+      <td>${s.discount >= 15
+          ? `<span class="badge-cheap">−${s.discount}%</span>`
+          : `<span class="badge-prem">−${s.discount}%</span>`}</td>
+    </tr>`).join("")}
+  </tbody>`;
+
+// ──────────────── SCATTER CHART ────────────────
+const medPrice  = 500, medRating = 4.5;
+function scatterColor(d) {
+  if (d.price <= medPrice && d.rating >= medRating) return "#4ade80";
+  if (d.price >  medPrice && d.rating >= medRating) return "#60a5fa";
+  if (d.price <= medPrice && d.rating <  medRating) return "#fbbf24";
+  return "#f472b6";
+}
+const scatterCtx = document.getElementById("scatterChart").getContext("2d");
+new Chart(scatterCtx, {
+  type: "scatter",
+  data: {
+    datasets: [{
+      label: "Products",
+      data: DATA.scatter.map(d => ({ x: d.price, y: d.rating, label: d.name })),
+      backgroundColor: DATA.scatter.map(d => scatterColor(d) + "cc"),
+      borderColor: DATA.scatter.map(d => scatterColor(d)),
+      borderWidth: 1.5,
+      pointRadius: 7,
+      pointHoverRadius: 9,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#13131d", borderColor: "#1e1e2e", borderWidth: 1,
+        titleColor: "#e2e8f0", bodyColor: "#94a3b8",
+        callbacks: {
+          title: items => items[0].raw.label,
+          label: item => ` $${item.raw.x}  ★${item.raw.y}`
+        }
+      }
+    },
+    scales: {
+      x: {
+        title: { display: true, text: "Price ($)", color: "#475569", font: { family: "DM Mono", size: 11 } },
+        ticks: { color: "#475569", font: { family: "DM Mono", size: 11 }, callback: v => `$${v}` },
+        grid: { color: "#1e1e2e" }
+      },
+      y: {
+        min: 3.5, max: 5.1,
+        title: { display: true, text: "Rating ★", color: "#475569", font: { family: "DM Mono", size: 11 } },
+        ticks: { color: "#475569", font: { family: "DM Mono", size: 11 } },
+        grid: { color: "#1e1e2e" }
+      }
+    }
+  }
+});
+
+// ──────────────── COMPETITION CHART ────────────────
+const compCtx = document.getElementById("competitionChart").getContext("2d");
+new Chart(compCtx, {
+  type: "bar",
+  data: {
+    labels: DATA.sellers.map(s => s.name),
+    datasets: [
+      {
+        label: "Products Listed",
+        data: DATA.sellers.map(s => s.products),
+        backgroundColor: "#6ee7b740", borderColor: "#6ee7b7", borderWidth: 1.5, yAxisID: "y",
+      },
+      {
+        label: "Avg Discount %",
+        data: DATA.sellers.map(s => s.discount),
+        backgroundColor: "#fbbf2440", borderColor: "#fbbf24", borderWidth: 1.5,
+        type: "line", yAxisID: "y2", tension: 0.4, pointRadius: 4,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { labels: { color: "#94a3b8", font: { family: "DM Mono", size: 11 }, boxWidth: 12 } },
+      tooltip: { backgroundColor: "#13131d", borderColor: "#1e1e2e", borderWidth: 1, titleColor: "#e2e8f0", bodyColor: "#94a3b8" }
+    },
+    scales: {
+      x: { ticks: { color: "#475569", font: { family: "DM Mono", size: 11 } }, grid: { color: "#1e1e2e" } },
+      y:  { ticks: { color: "#475569", font: { family: "DM Mono", size: 11 } }, grid: { color: "#1e1e2e" }, position: "left" },
+      y2: { ticks: { color: "#fbbf24", font: { family: "DM Mono", size: 11 }, callback: v => v + "%" }, grid: { display: false }, position: "right" }
+    }
+  }
+});
+
+// ──────────────── ALERTS ────────────────
+const alertSelect = document.getElementById("alertProduct");
+DATA.products.forEach(p => {
+  const opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.name;
+  alertSelect.appendChild(opt);
+});
+
+let alerts = [
+  { id: 1, pid: 1, name: "Galaxy S24 Ultra", email: "ahmed@email.com", target: 950 },
+  { id: 2, pid: 4, name: "Sony WH-1000XM5",  email: "ahmed@email.com", target: 220 },
+];
+
+function renderAlerts() {
+  const el = document.getElementById("alertsList");
+  el.innerHTML = alerts.length ? alerts.map(a => `
+    <div class="alert-item">
+      <div>
+        <div class="a-name">${a.name}</div>
+        <div class="a-meta">${a.email}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="alert-price">≤ $${a.target}</div>
+        <button class="btn-del" onclick="removeAlert(${a.id})">✕</button>
+      </div>
+    </div>`).join("") : `<div style="color:var(--muted);font-size:.82rem;padding:8px 0">No alerts set.</div>`;
+}
+
+function addAlert() {
+  const pid    = parseInt(document.getElementById("alertProduct").value);
+  const email  = document.getElementById("alertEmail").value.trim();
+  const target = parseFloat(document.getElementById("alertTarget").value);
+  if (!pid || !email || !target) return;
+  const prod = DATA.products.find(p => p.id === pid);
+  alerts.push({ id: Date.now(), pid, name: prod.name, email, target });
+  renderAlerts();
+  document.getElementById("alertEmail").value = "";
+  document.getElementById("alertTarget").value = "";
+}
+
+function removeAlert(id) {
+  alerts = alerts.filter(a => a.id !== id);
+  renderAlerts();
+}
+
+renderAlerts();
+</script>
+</body>
+</html>
