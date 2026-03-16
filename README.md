@@ -11,15 +11,15 @@
 
 ## ✨ Features
 
-| Feature | Details |
-|---|---|
-| **Multi-platform scraping** | Amazon (US) + Daraz (PK) with rotating user-agents |
-| **Daily automation** | GitHub Actions cron — runs at 06:00 UTC every day |
-| **SQLite history** | Full price history with per-seller granularity |
-| **Interactive dashboard** | Chart.js analytics: trends, scatter plots, seller matrix |
-| **Price drop alerts** | Email notifications when price hits your target |
-| **Market analysis** | Seller competition, rating/price correlation, best-value scoring |
-| **CSV snapshots** | Daily export files for Tableau / Power BI |
+| Feature                     | Details                                                          |
+| --------------------------- | ---------------------------------------------------------------- |
+| **Multi-platform scraping** | Amazon (US) + Daraz (PK) with rotating user-agents               |
+| **Daily automation**        | GitHub Actions cron — runs at 06:00 UTC every day                |
+| **SQLite history**          | Full price history with per-seller granularity                   |
+| **Interactive dashboard**   | Chart.js analytics: trends, scatter plots, seller matrix         |
+| **Price drop alerts**       | Email notifications when price hits your target                  |
+| **Market analysis**         | Seller competition, rating/price correlation, best-value scoring |
+| **CSV snapshots**           | Daily export files for Tableau / Power BI                        |
 
 ---
 
@@ -192,11 +192,11 @@ The workflow in `.github/workflows/daily_scrape.yml`:
 
 Set the following **repository secrets** for email alerts:
 
-| Secret | Value |
-|---|---|
-| `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
-| `SMTP_USER` | your Gmail address |
+| Secret          | Value              |
+| --------------- | ------------------ |
+| `SMTP_HOST`     | `smtp.gmail.com`   |
+| `SMTP_PORT`     | `587`              |
+| `SMTP_USER`     | your Gmail address |
 | `SMTP_PASSWORD` | Gmail App Password |
 
 ---
@@ -208,13 +208,3 @@ Set the following **repository secrets** for email alerts:
 - **Chart.js 4** — client-side interactive charts
 - **GitHub Actions** — free daily cron with artifact storage
 - **Python stdlib** — `smtplib`, `sqlite3`, `csv`, `statistics`
-
----
-
-## 📄 License
-
-MIT — free to use and modify.
-
----
-
-*Built to demonstrate end-to-end data engineering: scraping → storage → analysis → alerting → visualisation.*
